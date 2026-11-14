@@ -1,0 +1,202 @@
+"""Unit tests for cv_benchkit.converters."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+import pytest
+from pydantic import ValidationError
+
+from cv_benchkit.converters import (
+    BBox,
+    COCODataset,
+    coco_to_voc,
+    coco_to_yolo,
+    cxcywh_to_xyxy,
+    normalized_to_xyxy,
+    validate_coco_file,
+    voc_to_coco,
+    voc_to_yolo,
+    xywh_to_xyxy,
+    xyxy_to_cxcywh,
+    xyxy_to_normalized,
+    xyxy_to_xywh,
+    yolo_to_coco,
+    yolo_to_voc,
+)
+
+
+class TestBBoxConversions:
+    """Tests for coordinate conversions and round-trip consistency."""
+
+    @pytest.mark.parametrize(
+        ("xyxy", "expected_xywh"),
+        [
+            ([10.0, 20.0, 50.0, 80.0], [10.0, 20.0, 40.0, 60.0]),
+            ([0.0, 0.0, 100.0, 100.0], [0.0, 0.0, 100.0, 100.0]),
+            ([5.5, 10.5, 15.5, 20.5], [5.5, 10.5, 10.0, 10.0]),
+        ],
+    )
+    def test_xyxy_to_xywh_and_back(self, xyxy: list[float], expected_xywh: list[float]) -> None:
+        arr_xyxy = np.array([xyxy])
+        xywh = xyxy_to_xywh(arr_xyxy)
+        np.testing.assert_allclose(xywh[0], expected_xywh)
+
+        recovered = xywh_to_xyxy(xywh)
+        np.testing.assert_allclose(recovered[0], xyxy)
+
+    @pytest.mark.parametrize(
+        ("xyxy", "expected_cxcywh"),
+        [
+            ([10.0, 20.0, 50.0, 80.0], [30.0, 50.0, 40.0, 60.0]),
+            ([0.0, 0.0, 100.0, 100.0], [50.0, 50.0, 100.0, 100.0]),
+        ],
+    )
+    def test_xyxy_to_cxcywh_and_back(self, xyxy: list[float], expected_cxcywh: list[float]) -> None:
+        arr_xyxy = np.array([xyxy])
+        cxcywh = xyxy_to_cxcywh(arr_xyxy)
+        np.testing.assert_allclose(cxcywh[0], expected_cxcywh)
+
+        recovered = cxcywh_to_xyxy(cxcywh)
+        np.testing.assert_allclose(recovered[0], xyxy)
+
+    def test_xyxy_to_normalized_and_back(self) -> None:
+        img_w, img_h = 640, 480
+        boxes = np.array([[64.0, 48.0, 320.0, 240.0], [0.0, 0.0, 640.0, 480.0]])
+        norm = xyxy_to_normalized(boxes, img_w=img_w, img_h=img_h)
+        assert np.all(norm >= 0.0) and np.all(norm <= 1.0)
+
+        recovered = normalized_to_xyxy(norm, img_w=img_w, img_h=img_h)
+        np.testing.assert_allclose(recovered, boxes)
+
+    def test_empty_boxes(self) -> None:
+        empty = np.empty((0, 4), dtype=np.float64)
+        assert xyxy_to_xywh(empty).shape == (0, 4)
+        assert xywh_to_xyxy(empty).shape == (0, 4)
+        assert xyxy_to_cxcywh(empty).shape == (0, 4)
+        assert cxcywh_to_xyxy(empty).shape == (0, 4)
+        assert xyxy_to_normalized(empty, 100, 100).shape == (0, 4)
+        assert normalized_to_xyxy(empty, 100, 100).shape == (0, 4)
+
+    def test_invalid_dimensions(self) -> None:
+        with pytest.raises(ValueError):
+            xyxy_to_normalized(np.array([[10, 20, 30, 40]]), img_w=0, img_h=100)
+        with pytest.raises(ValueError):
+            xyxy_to_normalized(np.array([[10, 20, 30, 40]]), img_w=100, img_h=-5)
+
+
+class TestBBoxPydantic:
+    """Tests for Pydantic models."""
+
+    def test_valid_bbox(self) -> None:
+        b = BBox(coords=[10.0, 20.0, 30.0, 40.0], fmt="xyxy")
+        assert b.coords == [10.0, 20.0, 30.0, 40.0]
+        assert b.fmt == "xyxy"
+
+    def test_invalid_length(self) -> None:
+        with pytest.raises(ValidationError):
+            BBox(coords=[10.0, 20.0, 30.0], fmt="xyxy")
+
+    def test_invalid_format(self) -> None:
+        with pytest.raises(ValidationError):
+            BBox(coords=[10.0, 20.0, 30.0, 40.0], fmt="invalid_format")
+
+
+class TestDatasetConversions:
+    """Tests for COCO, YOLO, and VOC dataset translation."""
+
+    @pytest.fixture
+    def sample_coco_dataset(self, tmp_path: Path) -> tuple[Path, COCODataset]:
+        coco_content = {
+            "images": [
+                {"id": 1, "file_name": "img1.jpg", "width": 640, "height": 480},
+                {"id": 2, "file_name": "img2.jpg", "width": 800, "height": 600},
+            ],
+            "annotations": [
+                {
+                    "id": 1,
+                    "image_id": 1,
+                    "category_id": 0,
+                    "bbox": [100.0, 100.0, 50.0, 80.0],
+                    "area": 4000.0,
+                    "iscrowd": 0,
+                },
+                {
+                    "id": 2,
+                    "image_id": 2,
+                    "category_id": 1,
+                    "bbox": [200.0, 150.0, 100.0, 120.0],
+                    "area": 12000.0,
+                    "iscrowd": 0,
+                },
+            ],
+            "categories": [
+                {"id": 0, "name": "person"},
+                {"id": 1, "name": "car"},
+            ],
+        }
+        coco_path = tmp_path / "annotations.json"
+        coco_path.write_text(json.dumps(coco_content), encoding="utf-8")
+        ds = validate_coco_file(coco_path)
+        return coco_path, ds
+
+    def test_coco_to_yolo_and_back(
+        self, sample_coco_dataset: tuple[Path, COCODataset], tmp_path: Path
+    ) -> None:
+        _coco_path, coco = sample_coco_dataset
+        yolo_dir = tmp_path / "yolo_labels"
+
+        written = coco_to_yolo(coco, yolo_dir)
+        assert len(written) == 2
+        assert (yolo_dir / "img1.txt").exists()
+        assert (yolo_dir / "img2.txt").exists()
+
+        # Check YOLO format content
+        lines = (yolo_dir / "img1.txt").read_text(encoding="utf-8").strip().splitlines()
+        assert len(lines) == 1
+        parts = [float(p) for p in lines[0].split()]
+        assert int(parts[0]) == 0
+        assert all(0.0 <= p <= 1.0 for p in parts[1:])
+
+        # Convert back
+        image_sizes = {"img1": (640, 480), "img2": (800, 600)}
+        cat_names = ["person", "car"]
+        rec_coco = yolo_to_coco(yolo_dir, image_sizes=image_sizes, category_names=cat_names)
+        assert len(rec_coco.annotations) == 2
+        assert len(rec_coco.categories) == 2
+
+    def test_coco_to_voc_and_back(
+        self, sample_coco_dataset: tuple[Path, COCODataset], tmp_path: Path
+    ) -> None:
+        _coco_path, coco = sample_coco_dataset
+        voc_dir = tmp_path / "voc_annotations"
+        written = coco_to_voc(coco, voc_dir)
+        assert len(written) == 2
+        assert (voc_dir / "img1.xml").exists()
+        assert (voc_dir / "img2.xml").exists()
+
+        cat_names = ["person", "car"]
+        rec_coco = voc_to_coco(voc_dir, category_names=cat_names)
+        assert len(rec_coco.images) == 2
+        assert len(rec_coco.annotations) == 2
+
+    def test_yolo_to_voc_and_back(
+        self, sample_coco_dataset: tuple[Path, COCODataset], tmp_path: Path
+    ) -> None:
+        _coco_path, coco = sample_coco_dataset
+        yolo_dir = tmp_path / "yolo"
+        coco_to_yolo(coco, yolo_dir)
+
+        voc_dir = tmp_path / "voc"
+        img_sizes = {"img1": (640, 480), "img2": (800, 600)}
+        cat_names = ["person", "car"]
+        voc_files = yolo_to_voc(yolo_dir, voc_dir, image_sizes=img_sizes, category_names=cat_names)
+        assert len(voc_files) == 2
+        assert (voc_dir / "img1.xml").exists()
+
+        yolo_rec_dir = tmp_path / "yolo_rec"
+        yolo_files = voc_to_yolo(voc_dir, yolo_rec_dir, category_names=cat_names)
+        assert len(yolo_files) == 2
+        assert (yolo_rec_dir / "img1.txt").exists()

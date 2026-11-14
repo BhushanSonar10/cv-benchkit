@@ -1,0 +1,37 @@
+name: Bug Report
+description: File a bug report to help us improve cv-benchkit
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal Reproduction Code
+      description: Provide a minimal, self-contained Python script or snippet that reproduces the issue.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error Traceback / Output
+      description: Paste the full traceback or output if an exception was raised.
+      render: text
+  - type: input
+    id: environment
+    attributes:
+      label: Environment Info
+      description: Python version, OS, cv-benchkit version, numpy version.
+      placeholder: "e.g., Python 3.12, Windows 11, cv-benchkit 0.1.0, numpy 2.1"
+    validations:
+      required: true

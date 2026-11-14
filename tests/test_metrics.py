@@ -1,0 +1,133 @@
+"""Unit tests for cv_benchkit.metrics."""
+
+from __future__ import annotations
+
+import numpy as np
+
+from cv_benchkit.metrics import (
+    compute_confusion_matrix,
+    compute_giou,
+    compute_iou,
+)
+
+
+class TestMetrics:
+    """Test suite for IoU, GIoU, and confusion matrix."""
+
+    def test_iou_identical_boxes(self) -> None:
+        boxes = np.array([[0.0, 0.0, 10.0, 10.0], [10.0, 10.0, 20.0, 20.0]])
+        iou = compute_iou(boxes, boxes)
+        assert iou.shape == (2, 2)
+        np.testing.assert_allclose(np.diag(iou), [1.0, 1.0])
+        assert iou[0, 1] == 0.0
+        assert iou[1, 0] == 0.0
+
+    def test_iou_1d_input(self) -> None:
+        b1 = np.array([0.0, 0.0, 10.0, 10.0])
+        b2 = np.array([0.0, 0.0, 10.0, 10.0])
+        iou = compute_iou(b1, b2)
+        assert iou.shape == (1, 1)
+        np.testing.assert_allclose(iou[0, 0], 1.0)
+
+    def test_iou_partial_overlap(self) -> None:
+        b1 = np.array([[0.0, 0.0, 10.0, 10.0]])
+        b2 = np.array([[5.0, 0.0, 15.0, 10.0]])
+        iou = compute_iou(b1, b2)
+        np.testing.assert_allclose(iou[0, 0], 1.0 / 3.0)
+
+    def test_iou_disjoint_boxes(self) -> None:
+        b1 = np.array([[0.0, 0.0, 5.0, 5.0]])
+        b2 = np.array([[10.0, 10.0, 20.0, 20.0]])
+        iou = compute_iou(b1, b2)
+        assert iou[0, 0] == 0.0
+
+    def test_empty_inputs_iou(self) -> None:
+        empty = np.empty((0, 4))
+        b = np.array([[0.0, 0.0, 10.0, 10.0]])
+        assert compute_iou(empty, b).shape == (0, 1)
+        assert compute_iou(b, empty).shape == (1, 0)
+        assert compute_iou(empty, empty).shape == (0, 0)
+
+    def test_giou_identical_boxes(self) -> None:
+        boxes = np.array([[0.0, 0.0, 10.0, 10.0]])
+        giou = compute_giou(boxes, boxes)
+        np.testing.assert_allclose(giou[0, 0], 1.0)
+
+    def test_giou_1d_and_empty(self) -> None:
+        b1 = np.array([0.0, 0.0, 10.0, 10.0])
+        b2 = np.array([0.0, 0.0, 10.0, 10.0])
+        assert compute_giou(b1, b2).shape == (1, 1)
+
+        empty = np.empty((0, 4))
+        assert compute_giou(empty, b1).shape == (0, 1)
+        assert compute_giou(b1, empty).shape == (1, 0)
+
+    def test_giou_disjoint_boxes(self) -> None:
+        b1 = np.array([[0.0, 0.0, 10.0, 10.0]])
+        b2 = np.array([[20.0, 0.0, 30.0, 10.0]])
+        giou = compute_giou(b1, b2)
+        np.testing.assert_allclose(giou[0, 0], -1.0 / 3.0, atol=1e-5)
+
+    def test_confusion_matrix_normal(self) -> None:
+        gt_boxes = np.array(
+            [
+                [0.0, 0.0, 10.0, 10.0],
+                [20.0, 20.0, 30.0, 30.0],
+                [50.0, 50.0, 60.0, 60.0],
+            ]
+        )
+        gt_labels = np.array([0, 1, 0])
+
+        pred_boxes = np.array(
+            [
+                [0.0, 0.0, 10.0, 10.0],
+                [21.0, 21.0, 31.0, 31.0],
+                [80.0, 80.0, 90.0, 90.0],
+            ]
+        )
+        pred_labels = np.array([0, 0, 1])
+
+        cm = compute_confusion_matrix(
+            gt_labels=gt_labels,
+            pred_labels=pred_labels,
+            gt_boxes=gt_boxes,
+            pred_boxes=pred_boxes,
+            num_classes=2,
+            iou_threshold=0.5,
+        )
+        assert cm.shape == (3, 3)
+        assert cm.sum() > 0
+
+    def test_confusion_matrix_edge_cases(self) -> None:
+        # Both empty
+        cm_empty = compute_confusion_matrix(
+            gt_labels=np.array([]),
+            pred_labels=np.array([]),
+            gt_boxes=np.empty((0, 4)),
+            pred_boxes=np.empty((0, 4)),
+            num_classes=2,
+        )
+        assert cm_empty.shape == (3, 3)
+        assert cm_empty.sum() == 0
+
+        # Empty GT (all predictions are false positives)
+        cm_no_gt = compute_confusion_matrix(
+            gt_labels=np.array([]),
+            pred_labels=np.array([0, 1]),
+            gt_boxes=np.empty((0, 4)),
+            pred_boxes=np.array([[0, 0, 10, 10], [20, 20, 30, 30]]),
+            num_classes=2,
+        )
+        assert cm_no_gt[2, 0] == 1  # background row, class 0 col
+        assert cm_no_gt[2, 1] == 1  # background row, class 1 col
+
+        # Empty Pred (all GTs are false negatives)
+        cm_no_pred = compute_confusion_matrix(
+            gt_labels=np.array([0, 1]),
+            pred_labels=np.array([]),
+            gt_boxes=np.array([[0, 0, 10, 10], [20, 20, 30, 30]]),
+            pred_boxes=np.empty((0, 4)),
+            num_classes=2,
+        )
+        assert cm_no_pred[0, 2] == 1  # class 0 row, background col
+        assert cm_no_pred[1, 2] == 1  # class 1 row, background col

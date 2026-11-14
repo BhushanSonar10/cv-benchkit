@@ -1,0 +1,28 @@
+name: Feature Request
+description: Suggest an idea or new capability for cv-benchkit
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a feature suggestion or format integration in mind? We'd love to hear it!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear description of what the problem is.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution / API
+      description: Describe how you would like the API or CLI to behave.
+      placeholder: "e.g., cv_benchkit.converters.coco_to_yolo_obb(coco, output_dir)"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or features you considered.
