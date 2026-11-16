@@ -9,7 +9,7 @@ description = "Computer-vision benchmark toolkit: bbox format converters, datase
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-authors = [{ name = "Uday Raj", email = "udayraj1238@gmail.com" }]
+authors = [{ name = "Uday Raj", email = "rajuday6002@gmail.com" }]
 keywords = ["computer-vision", "bbox", "coco", "yolo", "voc", "iou", "metrics"]
 classifiers = [
     "Development Status :: 3 - Alpha",
