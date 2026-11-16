@@ -83,7 +83,7 @@ We have curated and actively maintain **modular, beginner-friendly issues** with
 ### How to Claim an Issue:
 1. Find an issue labeled [`good first issue`](https://github.com/udayraj1238/cv-benchkit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) that is not yet assigned.
 2. Comment on the issue: `I'd like to work on this! Plan: [one sentence approach]`.
-3. Read [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, testing, and pull request guidelines.
+3. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for local setup, community standards, and pull request guidelines.
 4. Also see our [Good First Issues Catalog](docs/GOOD_FIRST_ISSUES_CATALOG.md) for a comprehensive catalog of upcoming tasks across documentation, converters, and metrics.
 
 ### Local Development Setup:
@@ -95,6 +95,12 @@ uv run pytest
 uv run ruff check .
 uv run mypy src/
 ```
+
+---
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting and responsible disclosure.
 
 ---
 
