@@ -182,6 +182,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     print(msg)
     return 0
 
+
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point."""
     parser = _build_parser()
