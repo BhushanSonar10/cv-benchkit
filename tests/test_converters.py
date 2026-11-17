@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,22 @@ from cv_benchkit.converters import (
     yolo_to_coco,
     yolo_to_voc,
 )
+
+
+@pytest.mark.parametrize("converter", [coco_to_yolo, coco_to_voc])
+@pytest.mark.parametrize("as_string", [False, True])
+def test_coco_output_rejects_existing_file_without_changing_it(
+    tmp_path: Path,
+    converter: Callable[[COCODataset, Path | str], list[Path]],
+    as_string: bool,
+) -> None:
+    output = tmp_path / "existing labels.txt"
+    output.write_text("preserve this file", encoding="utf-8")
+    dataset = COCODataset(images=[], annotations=[], categories=[])
+    with pytest.raises(NotADirectoryError, match="output_dir cannot be an existing file") as exc:
+        converter(dataset, str(output) if as_string else output)
+    assert str(output) in str(exc.value)
+    assert output.read_text(encoding="utf-8") == "preserve this file"
 
 
 class TestBBoxConversions:

@@ -355,8 +355,16 @@ def coco_to_yolo(
     -------
     list[Path]
         Paths of the written label files.
+
+    Raises
+    ------
+    NotADirectoryError
+        If ``output_dir`` is an existing file.
     """
     output_dir = Path(output_dir)
+    if output_dir.is_file():
+        msg = f"output_dir cannot be an existing file: {output_dir}"
+        raise NotADirectoryError(msg)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if category_map is None:
@@ -461,8 +469,16 @@ def coco_to_voc(
     -------
     list[Path]
         Paths of the written XML files.
+
+    Raises
+    ------
+    NotADirectoryError
+        If ``output_dir`` is an existing file.
     """
     output_dir = Path(output_dir)
+    if output_dir.is_file():
+        msg = f"output_dir cannot be an existing file: {output_dir}"
+        raise NotADirectoryError(msg)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cat_lookup: dict[int, str] = {c.id: c.name for c in coco.categories}
