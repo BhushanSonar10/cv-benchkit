@@ -122,6 +122,34 @@ class TestBBoxConversions:
         out = xywh_to_xyxy(np.array([xywh]))
         np.testing.assert_allclose(out[0], expected_xyxy)
 
+    @pytest.mark.parametrize(
+        "invalid_box",
+        [
+            [50.0, 50.0, -5.0, 30.0],
+            [50.0, 50.0, 30.0, -1.0],
+            [50.0, 50.0, -10.0, -20.0],
+            [[50.0, 50.0, 30.0, 40.0], [25.0, 25.0, -1.0, 10.0]],
+        ],
+    )
+    def test_cxcywh_to_xyxy_negative_dimensions_raise(self, invalid_box: list) -> None:
+        boxes = np.array(invalid_box)
+        with pytest.raises(ValueError, match="Box width and height must be non-negative"):
+            cxcywh_to_xyxy(boxes)
+
+    @pytest.mark.parametrize(
+        ("cxcywh", "expected_xyxy"),
+        [
+            ([50.0, 50.0, 0.0, 30.0], [50.0, 35.0, 50.0, 65.0]),
+            ([50.0, 50.0, 30.0, 0.0], [35.0, 50.0, 65.0, 50.0]),
+            ([50.0, 50.0, 0.0, 0.0], [50.0, 50.0, 50.0, 50.0]),
+        ],
+    )
+    def test_cxcywh_to_xyxy_zero_dimensions_pass(
+        self, cxcywh: list[float], expected_xyxy: list[float]
+    ) -> None:
+        out = cxcywh_to_xyxy(np.array([cxcywh]))
+        np.testing.assert_allclose(out[0], expected_xyxy)
+
 
 class TestBBoxPydantic:
     """Tests for Pydantic models."""

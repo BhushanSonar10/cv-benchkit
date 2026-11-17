@@ -230,12 +230,20 @@ def cxcywh_to_xyxy(boxes: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]
     -------
     ndarray, shape ``(N, 4)``
         Each row is ``[x_min, y_min, x_max, y_max]``.
+
+    Raises
+    ------
+    ValueError
+        If any box has negative width or height.
     """
     boxes = np.asarray(boxes, dtype=np.float64)
     if boxes.ndim == 1:
         boxes = boxes.reshape(1, 4)
     if boxes.shape[0] == 0:
         return np.empty((0, 4), dtype=np.float64)
+    if np.any(boxes[:, 2] < 0) or np.any(boxes[:, 3] < 0):
+        msg = "Box width and height must be non-negative"
+        raise ValueError(msg)
     out = np.empty_like(boxes)
     half_w = boxes[:, 2] / 2
     half_h = boxes[:, 3] / 2
