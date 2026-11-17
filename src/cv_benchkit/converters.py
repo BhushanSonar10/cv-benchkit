@@ -354,7 +354,7 @@ def yolo_to_coco(
     label_dir : Path | str
         Directory containing ``.txt`` label files.
     image_sizes : dict[str, tuple[int, int]]
-        Mapping of image stem → ``(width, height)``.
+        Mapping of image stem → ``(width, height)``; both dimensions must be positive.
     category_names : Sequence[str]
         Ordered list of category names (index = class id).
 
@@ -363,6 +363,9 @@ def yolo_to_coco(
     COCODataset
         Validated COCO dataset.
     """
+    for stem, (width, height) in image_sizes.items():
+        if width <= 0 or height <= 0:
+            raise ValueError(f"Image {stem!r} must have positive width and height")
     label_dir = Path(label_dir)
     images: list[COCOImage] = []
     annotations: list[COCOAnnotation] = []

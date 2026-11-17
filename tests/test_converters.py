@@ -200,3 +200,14 @@ class TestDatasetConversions:
         yolo_files = voc_to_yolo(voc_dir, yolo_rec_dir, category_names=cat_names)
         assert len(yolo_files) == 2
         assert (yolo_rec_dir / "img1.txt").exists()
+
+
+@pytest.mark.parametrize("width,height", [(0, 480), (-1, 480), (640, 0), (640, -1)])
+@pytest.mark.parametrize("with_label", [False, True])
+def test_yolo_to_coco_rejects_invalid_image_dimensions(
+    tmp_path: Path, width: int, height: int, with_label: bool
+) -> None:
+    if with_label:
+        (tmp_path / "invalid.txt").write_text("0 0.5 0.5 0.2 0.2\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"invalid.*positive"):
+        yolo_to_coco(tmp_path, {"invalid": (width, height)}, ["object"])
