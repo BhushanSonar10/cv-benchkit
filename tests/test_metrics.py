@@ -156,3 +156,34 @@ class TestMetrics:
             iou_threshold=iou_threshold,
         )
         assert cm.shape == (3, 3)
+
+
+@pytest.mark.parametrize("num_classes", [0, -1])
+def test_confusion_matrix_rejects_nonpositive_classes(num_classes: int) -> None:
+    with pytest.raises(ValueError, match="num_classes must be a positive integer"):
+        compute_confusion_matrix(
+            np.array([], dtype=int),
+            np.array([], dtype=int),
+            np.empty((0, 4)),
+            np.empty((0, 4)),
+            num_classes,
+        )
+
+
+@pytest.mark.parametrize("num_labels,num_boxes", [(2, 1), (1, 2), (0, 1), (1, 0)])
+@pytest.mark.parametrize("side", ["ground-truth", "predicted"])
+def test_confusion_matrix_rejects_mismatched_lengths(
+    num_labels: int,
+    num_boxes: int,
+    side: str,
+) -> None:
+    labels = np.zeros(num_labels, dtype=int)
+    boxes = np.zeros((num_boxes, 4))
+    empty_labels = np.array([], dtype=int)
+    empty_boxes = np.empty((0, 4))
+    message = f"Number of {side} labels must match number of {side} boxes"
+    with pytest.raises(ValueError, match=message):
+        if side == "ground-truth":
+            compute_confusion_matrix(labels, empty_labels, boxes, empty_boxes, 2)
+        else:
+            compute_confusion_matrix(empty_labels, labels, empty_boxes, boxes, 2)
