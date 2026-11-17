@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from cv_benchkit.metrics import (
     compute_confusion_matrix,
@@ -131,3 +132,27 @@ class TestMetrics:
         )
         assert cm_no_pred[0, 2] == 1  # class 0 row, background col
         assert cm_no_pred[1, 2] == 1  # class 1 row, background col
+
+    @pytest.mark.parametrize("iou_threshold", [-0.1, 1.5, -1.0, 2.0])
+    def test_confusion_matrix_rejects_invalid_iou_threshold(self, iou_threshold: float) -> None:
+        with pytest.raises(ValueError, match=r"iou_threshold must be between 0\.0 and 1\.0"):
+            compute_confusion_matrix(
+                gt_labels=np.array([0]),
+                pred_labels=np.array([0]),
+                gt_boxes=np.array([[0.0, 0.0, 10.0, 10.0]]),
+                pred_boxes=np.array([[0.0, 0.0, 10.0, 10.0]]),
+                num_classes=2,
+                iou_threshold=iou_threshold,
+            )
+
+    @pytest.mark.parametrize("iou_threshold", [0.0, 1.0])
+    def test_confusion_matrix_accepts_boundary_iou_threshold(self, iou_threshold: float) -> None:
+        cm = compute_confusion_matrix(
+            gt_labels=np.array([0]),
+            pred_labels=np.array([0]),
+            gt_boxes=np.array([[0.0, 0.0, 10.0, 10.0]]),
+            pred_boxes=np.array([[0.0, 0.0, 10.0, 10.0]]),
+            num_classes=2,
+            iou_threshold=iou_threshold,
+        )
+        assert cm.shape == (3, 3)

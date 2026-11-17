@@ -157,14 +157,23 @@ def compute_confusion_matrix(
     num_classes : int
         Number of object classes (not counting background).
     iou_threshold : float
-        IoU threshold for a match to count as a true positive.
+        IoU threshold for a match to count as a true positive. Must be in ``[0, 1]``.
 
     Returns
     -------
     ndarray, shape ``(num_classes + 1, num_classes + 1)``
         Confusion matrix where ``[i, j]`` = count of GT class *i* predicted as
         class *j*. The last index is "background".
+
+    Raises
+    ------
+    ValueError
+        If ``iou_threshold`` is outside ``[0, 1]``.
     """
+    if not (0.0 <= iou_threshold <= 1.0):
+        msg = f"iou_threshold must be between 0.0 and 1.0, got {iou_threshold}"
+        raise ValueError(msg)
+
     gt_labels = np.asarray(gt_labels, dtype=np.int64)
     pred_labels = np.asarray(pred_labels, dtype=np.int64)
     gt_boxes = np.asarray(gt_boxes, dtype=np.float64)
