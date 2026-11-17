@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from cv_benchkit import __version__
 from cv_benchkit.cli import main
 
 
@@ -288,3 +289,10 @@ class TestCLI:
             ]
         )
         assert exit_code == 1
+
+    def test_cli_version(self, capsys: pytest.CaptureFixture[str]) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            main(["--version"])
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert __version__ in captured.out

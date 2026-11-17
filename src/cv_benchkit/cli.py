@@ -14,6 +14,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from cv_benchkit import __version__
 from cv_benchkit.converters import (
     coco_to_voc,
     coco_to_yolo,
@@ -27,6 +28,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cv-benchkit",
         description="Computer-vision benchmark toolkit: convert and validate datasets.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
