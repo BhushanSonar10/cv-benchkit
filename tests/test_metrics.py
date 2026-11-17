@@ -49,6 +49,32 @@ class TestMetrics:
         assert compute_iou(b, empty).shape == (1, 0)
         assert compute_iou(empty, empty).shape == (0, 0)
 
+    def test_iou_empty_1d_array_as_first_argument(self) -> None:
+        boxes_b = np.array([[0.0, 0.0, 10.0, 10.0], [5.0, 5.0, 15.0, 15.0]])
+        result = compute_iou(np.empty(0), boxes_b)
+        assert result.shape == (0, len(boxes_b))
+
+    def test_iou_empty_1d_array_as_second_argument(self) -> None:
+        boxes_a = np.array([[0.0, 0.0, 10.0, 10.0], [5.0, 5.0, 15.0, 15.0]])
+        result = compute_iou(boxes_a, np.empty(0))
+        assert result.shape == (len(boxes_a), 0)
+
+    def test_iou_rejects_boxes_without_four_coordinates(self) -> None:
+        boxes_b = np.array([[0.0, 0.0, 10.0, 10.0]])
+        with np.testing.assert_raises_regex(
+            ValueError, r"Boxes must have 4 coordinates \[x_min, y_min, x_max, y_max\]"
+        ):
+            compute_iou(np.array([[0, 0, 10]]), boxes_b)
+
+    def test_giou_empty_1d_array(self) -> None:
+        boxes_b = np.array([[0.0, 0.0, 10.0, 10.0]])
+        assert compute_giou(np.empty(0), boxes_b).shape == (0, 1)
+        assert compute_giou(boxes_b, np.empty(0)).shape == (1, 0)
+        with np.testing.assert_raises_regex(
+            ValueError, r"Boxes must have 4 coordinates \[x_min, y_min, x_max, y_max\]"
+        ):
+            compute_giou(np.array([[0, 0, 10]]), boxes_b)
+
     def test_giou_identical_boxes(self) -> None:
         boxes = np.array([[0.0, 0.0, 10.0, 10.0]])
         giou = compute_giou(boxes, boxes)

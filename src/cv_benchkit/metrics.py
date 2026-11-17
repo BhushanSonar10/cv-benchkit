@@ -11,6 +11,23 @@ import numpy as np
 from numpy.typing import NDArray
 
 
+def _normalize_boxes(
+    boxes: NDArray[np.floating[Any]],
+) -> NDArray[np.floating[Any]]:
+    """Coerce boxes to a 2D ``(M, 4)`` xyxy array and validate coordinates.
+
+    An empty 1D input becomes ``(0, 4)``; a non-empty 1D input becomes
+    ``(1, 4)``. Any non-empty array without exactly four coordinates on its
+    last axis is rejected with a clear error.
+    """
+    arr = np.asarray(boxes, dtype=np.float64)
+    if arr.ndim == 1:
+        arr = arr.reshape((0, 4) if arr.size == 0 else (1, -1))
+    if arr.size != 0 and arr.shape[-1] != 4:
+        raise ValueError("Boxes must have 4 coordinates [x_min, y_min, x_max, y_max]")
+    return arr
+
+
 def compute_iou(
     boxes_a: NDArray[np.floating[Any]],
     boxes_b: NDArray[np.floating[Any]],
@@ -29,13 +46,8 @@ def compute_iou(
     ndarray, shape ``(M, N)``
         IoU values in ``[0, 1]``.
     """
-    boxes_a = np.asarray(boxes_a, dtype=np.float64)
-    boxes_b = np.asarray(boxes_b, dtype=np.float64)
-
-    if boxes_a.ndim == 1:
-        boxes_a = boxes_a.reshape(1, 4)
-    if boxes_b.ndim == 1:
-        boxes_b = boxes_b.reshape(1, 4)
+    boxes_a = _normalize_boxes(boxes_a)
+    boxes_b = _normalize_boxes(boxes_b)
 
     m = boxes_a.shape[0]
     n = boxes_b.shape[0]
@@ -84,13 +96,8 @@ def compute_giou(
     ndarray, shape ``(M, N)``
         GIoU values in ``[-1, 1]``.
     """
-    boxes_a = np.asarray(boxes_a, dtype=np.float64)
-    boxes_b = np.asarray(boxes_b, dtype=np.float64)
-
-    if boxes_a.ndim == 1:
-        boxes_a = boxes_a.reshape(1, 4)
-    if boxes_b.ndim == 1:
-        boxes_b = boxes_b.reshape(1, 4)
+    boxes_a = _normalize_boxes(boxes_a)
+    boxes_b = _normalize_boxes(boxes_b)
 
     m = boxes_a.shape[0]
     n = boxes_b.shape[0]
