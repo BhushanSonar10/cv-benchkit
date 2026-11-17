@@ -296,3 +296,59 @@ class TestCLI:
         assert exc_info.value.code == 0
         captured = capsys.readouterr()
         assert __version__ in captured.out
+
+    @pytest.mark.parametrize(
+        ("width", "height"),
+        [
+            ("0", "100"),
+            ("100", "0"),
+            ("-10", "100"),
+            ("100", "-10"),
+            ("0", "0"),
+            ("-5", "-5"),
+        ],
+    )
+    def test_convert_yolo_invalid_dimensions(
+        self,
+        sample_coco_file: Path,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        width: str,
+        height: str,
+    ) -> None:
+        yolo_dir = tmp_path / "yolo_in"
+        main(
+            [
+                "convert",
+                "--from",
+                "coco",
+                "--to",
+                "yolo",
+                "--input",
+                str(sample_coco_file),
+                "--output",
+                str(yolo_dir),
+            ]
+        )
+        exit_code = main(
+            [
+                "convert",
+                "--from",
+                "yolo",
+                "--to",
+                "coco",
+                "--input",
+                str(yolo_dir),
+                "--output",
+                str(tmp_path / f"out_invalid_{width}_{height}"),
+                "--categories",
+                "dog",
+                "--image-width",
+                width,
+                "--image-height",
+                height,
+            ]
+        )
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "Error: --image-width and --image-height must be positive integers." in captured.err

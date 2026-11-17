@@ -113,9 +113,15 @@ def _cmd_convert(args: argparse.Namespace) -> int:
             return 1
         w = args.image_width
         h = args.image_height
-        if not w or not h:
+        if w is None or h is None:
             print(
                 "Error: --image-width and --image-height required for YOLO source.", file=sys.stderr
+            )
+            return 1
+        if w <= 0 or h <= 0:
+            print(
+                "Error: --image-width and --image-height must be positive integers.",
+                file=sys.stderr,
             )
             return 1
         stems = [p.stem for p in inp.glob("*.txt")]
