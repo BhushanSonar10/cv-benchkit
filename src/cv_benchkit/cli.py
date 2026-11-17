@@ -167,6 +167,9 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     if not path.exists():
         print(f"Error: file {path} not found.", file=sys.stderr)
         return 1
+    if path.is_dir():
+        print(f"Error: {path} is a directory, expected a JSON file.", file=sys.stderr)
+        return 1
     try:
         coco = validate_coco_file(path)
     except Exception as exc:  # noqa: BLE001
@@ -178,7 +181,6 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     )
     print(msg)
     return 0
-
 
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point."""
