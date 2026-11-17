@@ -66,6 +66,26 @@ class TestMetrics:
         ):
             compute_iou(np.array([[0, 0, 10]]), boxes_b)
 
+    @pytest.mark.parametrize("start_axis", [0, 1], ids=["x-min", "y-min"])
+    @pytest.mark.parametrize("input_index", [0, 1], ids=["boxes-a", "boxes-b"])
+    def test_iou_rejects_inverted_coordinates(self, start_axis: int, input_index: int) -> None:
+        valid_boxes = np.array([[0.0, 0.0, 10.0, 10.0]])
+        inverted_batch = np.repeat(valid_boxes, 2, axis=0)
+        inverted_batch[1, start_axis] = 11.0
+        inputs = [valid_boxes, valid_boxes]
+        inputs[input_index] = inverted_batch
+
+        with pytest.raises(
+            ValueError, match=r"Box coordinates must satisfy x_min <= x_max and y_min <= y_max"
+        ):
+            compute_iou(*inputs)
+
+    def test_iou_accepts_equal_minimum_and_maximum_coordinates(self) -> None:
+        degenerate_boxes = np.array([[0.0, 0.0, 0.0, 10.0], [0.0, 0.0, 10.0, 0.0]])
+        valid_box = np.array([0.0, 0.0, 10.0, 10.0])
+
+        np.testing.assert_array_equal(compute_iou(degenerate_boxes, valid_box), [[0.0], [0.0]])
+
     def test_giou_empty_1d_array(self) -> None:
         boxes_b = np.array([[0.0, 0.0, 10.0, 10.0]])
         assert compute_giou(np.empty(0), boxes_b).shape == (0, 1)
