@@ -86,6 +86,14 @@ class TestBBoxConversions:
         with pytest.raises(ValueError):
             xyxy_to_normalized(np.array([[10, 20, 30, 40]]), img_w=100, img_h=-5)
 
+    def test_xyxy_to_xywh_inverted_boxes(self) -> None:
+        inverted = np.array([[30.0, 40.0, 10.0, 20.0]])
+        with pytest.raises(ValueError, match="inverted bounding box"):
+            xyxy_to_xywh(inverted)
+
+        sanitized = xyxy_to_xywh(inverted, sanitize=True)
+        np.testing.assert_allclose(sanitized, np.array([[10.0, 20.0, 20.0, 20.0]]))
+
 
 class TestBBoxPydantic:
     """Tests for Pydantic models."""
