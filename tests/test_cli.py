@@ -47,6 +47,16 @@ class TestCLI:
         exit_code = main(["validate", str(missing)])
         assert exit_code == 1
 
+    def test_validate_directory_path(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        dir_path = tmp_path / "data"
+        dir_path.mkdir()
+        exit_code = main(["validate", str(dir_path)])
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "is a directory, expected a JSON file" in captured.err
+
     def test_validate_invalid_json(self, tmp_path: Path) -> None:
         bad_file = tmp_path / "bad.json"
         bad_file.write_text("not json", encoding="utf-8")
