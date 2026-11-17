@@ -213,3 +213,44 @@ def test_confusion_matrix_rejects_mismatched_lengths(
             compute_confusion_matrix(labels, empty_labels, boxes, empty_boxes, 2)
         else:
             compute_confusion_matrix(empty_labels, labels, empty_boxes, boxes, 2)
+
+
+@pytest.mark.parametrize(
+    "gt_labels,pred_labels",
+    [
+        (np.array([-1]), np.array([0])),
+        (np.array([0]), np.array([-1])),
+        (np.array([2]), np.array([0])),  # num_classes=2 → valid [0,1]
+        (np.array([0]), np.array([2])),
+        (np.array([-1, 0]), np.array([0])),
+        (np.array([0]), np.array([0, 5])),
+    ],
+)
+def test_confusion_matrix_rejects_out_of_range_labels(
+    gt_labels: np.ndarray,
+    pred_labels: np.ndarray,
+) -> None:
+    """Out-of-range class labels must raise ValueError."""
+    num_classes = 2
+    gt_boxes = np.zeros((len(gt_labels), 4))
+    pred_boxes = np.zeros((len(pred_labels), 4))
+    with pytest.raises(ValueError, match=r"Class labels must be in range \[0, 1\]"):
+        compute_confusion_matrix(
+            gt_labels=gt_labels,
+            pred_labels=pred_labels,
+            gt_boxes=gt_boxes,
+            pred_boxes=pred_boxes,
+            num_classes=num_classes,
+        )
+
+
+def test_confusion_matrix_accepts_boundary_labels() -> None:
+    """Labels at 0 and num_classes-1 are valid."""
+    cm = compute_confusion_matrix(
+        gt_labels=np.array([0, 1]),
+        pred_labels=np.array([1, 0]),
+        gt_boxes=np.array([[0.0, 0.0, 10.0, 10.0], [20.0, 20.0, 30.0, 30.0]]),
+        pred_boxes=np.array([[0.0, 0.0, 10.0, 10.0], [20.0, 20.0, 30.0, 30.0]]),
+        num_classes=2,
+    )
+    assert cm.shape == (3, 3)

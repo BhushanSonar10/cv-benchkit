@@ -186,6 +186,11 @@ def compute_confusion_matrix(
     gt_boxes = np.asarray(gt_boxes, dtype=np.float64)
     pred_boxes = np.asarray(pred_boxes, dtype=np.float64)
 
+    if (gt_labels.size > 0 and (np.any(gt_labels < 0) or np.any(gt_labels >= num_classes))) or (
+        pred_labels.size > 0 and (np.any(pred_labels < 0) or np.any(pred_labels >= num_classes))
+    ):
+        raise ValueError(f"Class labels must be in range [0, {num_classes - 1}]")
+
     if num_classes <= 0:
         raise ValueError(f"num_classes must be a positive integer, got {num_classes}")
     if len(gt_labels) != len(gt_boxes):
