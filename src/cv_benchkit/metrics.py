@@ -186,6 +186,13 @@ def compute_confusion_matrix(
     gt_boxes = np.asarray(gt_boxes, dtype=np.float64)
     pred_boxes = np.asarray(pred_boxes, dtype=np.float64)
 
+    if num_classes <= 0:
+        raise ValueError(f"num_classes must be a positive integer, got {num_classes}")
+    if len(gt_labels) != len(gt_boxes):
+        raise ValueError("Number of ground-truth labels must match number of ground-truth boxes")
+    if len(pred_labels) != len(pred_boxes):
+        raise ValueError("Number of predicted labels must match number of predicted boxes")
+
     bg = num_classes  # background index
     cm = np.zeros((num_classes + 1, num_classes + 1), dtype=np.int64)
 
