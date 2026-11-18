@@ -25,7 +25,7 @@ from xml.dom import minidom
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Pydantic models for validation
@@ -33,7 +33,7 @@ from pydantic import BaseModel, field_validator
 
 
 class BBox(BaseModel):
-    """A single bounding box with format metadata."""
+    """A single bounding box with non-negative dimensions and format metadata."""
 
     coords: list[float]
     fmt: str  # "xyxy" | "xywh" | "cxcywh" | "normalized"
@@ -54,6 +54,17 @@ class BBox(BaseModel):
             msg = f"fmt must be one of {allowed}, got {v!r}"
             raise ValueError(msg)
         return v
+
+    @model_validator(mode="after")
+    def _non_negative_dimensions(self) -> BBox:
+        width, height = self.coords[2:]
+        if self.fmt == "xyxy":
+            width -= self.coords[0]
+            height -= self.coords[1]
+        if width < 0 or height < 0:
+            msg = "Box width and height must be non-negative"
+            raise ValueError(msg)
+        return self
 
 
 class COCOAnnotation(BaseModel):
