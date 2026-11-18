@@ -83,6 +83,14 @@ class COCOImage(BaseModel):
     width: int
     height: int
 
+    @field_validator("width", "height")
+    @classmethod
+    def _positive(cls, v: int) -> int:
+        if v <= 0:
+            msg = "image dimensions must be positive"
+            raise ValueError(msg)
+        return v
+
 
 class COCOCategory(BaseModel):
     """Minimal COCO category record."""

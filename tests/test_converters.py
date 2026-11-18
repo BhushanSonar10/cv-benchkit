@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from cv_benchkit.converters import (
     BBox,
     COCODataset,
+    COCOImage,
     coco_to_voc,
     coco_to_yolo,
     cxcywh_to_xyxy,
@@ -283,7 +284,10 @@ class TestDatasetConversions:
         assert (yolo_rec_dir / "img1.txt").exists()
 
 
-@pytest.mark.parametrize("width,height", [(0, 480), (-1, 480), (640, 0), (640, -1)])
+@pytest.mark.parametrize(
+    "width,height",
+    [(0, 480), (-1, 480), (640, 0), (640, -1)],
+)
 @pytest.mark.parametrize("with_label", [False, True])
 def test_yolo_to_coco_rejects_invalid_image_dimensions(
     tmp_path: Path, width: int, height: int, with_label: bool
@@ -292,3 +296,20 @@ def test_yolo_to_coco_rejects_invalid_image_dimensions(
         (tmp_path / "invalid.txt").write_text("0 0.5 0.5 0.2 0.2\n", encoding="utf-8")
     with pytest.raises(ValueError, match=r"invalid.*positive"):
         yolo_to_coco(tmp_path, {"invalid": (width, height)}, ["object"])
+
+
+class TestCOCOImage:
+    """Tests for COCOImage positive dimension validation (#44)."""
+
+    @pytest.mark.parametrize(
+        ("width", "height"),
+        [(0, 100), (100, -1), (0, 0), (-5, 100), (100, 0)],
+    )
+    def test_rejects_non_positive_dimensions(self, width: int, height: int) -> None:
+        with pytest.raises(ValidationError, match="image dimensions must be positive"):
+            COCOImage(id=1, file_name="img.jpg", width=width, height=height)
+
+    def test_accepts_positive_dimensions(self) -> None:
+        img = COCOImage(id=1, file_name="img.jpg", width=100, height=200)
+        assert img.width == 100
+        assert img.height == 200
