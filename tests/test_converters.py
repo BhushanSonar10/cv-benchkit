@@ -28,6 +28,7 @@ from cv_benchkit.converters import (
     yolo_to_voc,
 )
 
+
 class TestBBoxConversions:
     """Tests for coordinate conversions and round-trip consistency."""
 
