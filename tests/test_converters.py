@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from cv_benchkit.converters import (
     BBox,
+    COCOAnnotation,
     COCODataset,
     COCOImage,
     coco_to_voc,
@@ -296,6 +297,20 @@ def test_yolo_to_coco_rejects_invalid_image_dimensions(
         (tmp_path / "invalid.txt").write_text("0 0.5 0.5 0.2 0.2\n", encoding="utf-8")
     with pytest.raises(ValueError, match=r"invalid.*positive"):
         yolo_to_coco(tmp_path, {"invalid": (width, height)}, ["object"])
+
+
+class TestCOCOAnnotation:
+    @pytest.mark.parametrize("area", [-0.25, float("nan"), float("inf"), float("-inf")])
+    def test_rejects_invalid_area(self, area: float) -> None:
+        with pytest.raises(ValidationError) as exc_info:
+            COCOAnnotation(id=1, image_id=1, category_id=1, bbox=[0, 0, 5, 4], area=area)
+
+        assert exc_info.value.errors()[0]["loc"] == ("area",)
+
+    @pytest.mark.parametrize("area", [0.0, 12.5])
+    def test_accepts_non_negative_area(self, area: float) -> None:
+        annotation = COCOAnnotation(id=1, image_id=1, category_id=1, bbox=[0, 0, 5, 4], area=area)
+        assert annotation.area == area
 
 
 class TestCOCOImage:
