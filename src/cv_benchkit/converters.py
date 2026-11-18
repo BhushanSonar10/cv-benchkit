@@ -422,6 +422,8 @@ def yolo_to_coco(
     COCODataset
         Validated COCO dataset.
     """
+    if not category_names:
+            raise ValueError("category_names must not be empty")
     for stem, (width, height) in image_sizes.items():
         if width <= 0 or height <= 0:
             raise ValueError(f"Image {stem!r} must have positive width and height")
@@ -429,7 +431,6 @@ def yolo_to_coco(
     images: list[COCOImage] = []
     annotations: list[COCOAnnotation] = []
     categories = [COCOCategory(id=i, name=name) for i, name in enumerate(category_names)]
-
     ann_id = 1
     for img_id, (stem, (w, h)) in enumerate(sorted(image_sizes.items()), start=1):
         images.append(COCOImage(id=img_id, file_name=f"{stem}.jpg", width=w, height=h))
@@ -568,6 +569,8 @@ def voc_to_coco(
     COCODataset
         Validated COCO dataset.
     """
+    if not category_names:
+        raise ValueError("category_names must not be empty")
     xml_dir = Path(xml_dir)
     name_to_id = {name: i for i, name in enumerate(category_names)}
     categories = [COCOCategory(id=i, name=name) for i, name in enumerate(category_names)]
