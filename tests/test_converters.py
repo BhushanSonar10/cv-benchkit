@@ -297,6 +297,7 @@ def test_yolo_to_coco_rejects_invalid_image_dimensions(
     with pytest.raises(ValueError, match=r"invalid.*positive"):
         yolo_to_coco(tmp_path, {"invalid": (width, height)}, ["object"])
 
+
 def test_yolo_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="category_names must not be empty"):
         yolo_to_coco(tmp_path, {}, [])
@@ -305,6 +306,7 @@ def test_yolo_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
 def test_voc_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="category_names must not be empty"):
         voc_to_coco(tmp_path, [])
+
 
 class TestCOCOImage:
     """Tests for COCOImage positive dimension validation (#44)."""

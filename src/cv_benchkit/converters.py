@@ -423,7 +423,7 @@ def yolo_to_coco(
         Validated COCO dataset.
     """
     if not category_names:
-            raise ValueError("category_names must not be empty")
+        raise ValueError("category_names must not be empty")
     for stem, (width, height) in image_sizes.items():
         if width <= 0 or height <= 0:
             raise ValueError(f"Image {stem!r} must have positive width and height")
