@@ -113,6 +113,14 @@ class TestBBoxConversions:
         sanitized = xyxy_to_xywh(inverted, sanitize=True)
         np.testing.assert_allclose(sanitized, np.array([[10.0, 20.0, 20.0, 20.0]]))
 
+    def test_xyxy_to_cxcywh_inverted_boxes(self) -> None:
+        inverted = np.array([[30.0, 40.0, 10.0, 20.0]])
+        with pytest.raises(ValueError, match="inverted bounding box"):
+            xyxy_to_cxcywh(inverted)
+
+        sanitized = xyxy_to_cxcywh(inverted, sanitize=True)
+        np.testing.assert_allclose(sanitized, np.array([[20.0, 30.0, 20.0, 20.0]]))
+
     @pytest.mark.parametrize(
         "invalid_box",
         [
