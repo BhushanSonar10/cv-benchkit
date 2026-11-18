@@ -6,6 +6,10 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Good First Issues](https://img.shields.io/github/issues/udayraj1238/cv-benchkit/good%20first%20issue?label=good%20first%20issues&color=7057ff)](https://github.com/udayraj1238/cv-benchkit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 
+> **Contributing:** Looking to contribute? Check out our [good first issues](https://github.com/udayraj1238/cv-benchkit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)!
+> To claim an issue, post a short comment on the issue before or when opening your PR, and include `Closes #<issue-number>` in your PR description.
+> First-time contributors (0 prior merged PRs) are prioritized for `good first issue` tickets to give newcomers a fair start.
+
 Unified computer vision annotation converter and model benchmarking toolkit for PyTorch and NumPy.
 
 ---
