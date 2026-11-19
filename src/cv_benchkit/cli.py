@@ -4,18 +4,23 @@ Subcommands
 -----------
 - ``cv-benchkit convert`` — convert between dataset formats
 - ``cv-benchkit validate`` — validate a COCO JSON file
+- ``cv-benchkit stats`` — print summary statistics of a COCO JSON file
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import statistics
 import sys
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from cv_benchkit import __version__
 from cv_benchkit.converters import (
+    COCODataset,
     coco_to_voc,
     coco_to_yolo,
     validate_coco_file,
@@ -27,7 +32,7 @@ from cv_benchkit.converters import (
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cv-benchkit",
-        description="Computer-vision benchmark toolkit: convert and validate datasets.",
+        description="Computer-vision benchmark toolkit: convert, validate and summarize datasets.",
     )
     parser.add_argument(
         "--version",
@@ -86,6 +91,15 @@ def _build_parser() -> argparse.ArgumentParser:
     # ── validate ─────────────────────────────────────────────────────────
     validate_p = sub.add_parser("validate", help="Validate a COCO JSON file.")
     validate_p.add_argument("file", help="Path to the COCO JSON file.")
+
+    # ── stats ────────────────────────────────────────────────────────────
+    stats_p = sub.add_parser("stats", help="Print summary statistics of a COCO JSON file.")
+    stats_p.add_argument("file", help="Path to the COCO JSON file.")
+    stats_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the statistics as JSON.",
+    )
 
     return parser
 
@@ -183,6 +197,140 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+# COCO area thresholds: small < 32**2 <= medium < 96**2 <= large.
+_SMALL_AREA = 32.0**2
+_LARGE_AREA = 96.0**2
+
+
+def _percent(count: int, total: int) -> float:
+    return 100.0 * count / total if total else 0.0
+
+
+def _compute_stats(coco: COCODataset) -> dict[str, Any]:
+    """Compute the summary statistics printed by ``cv-benchkit stats``.
+
+    Box scales use the annotation ``area`` with the COCO thresholds. Aspect
+    ratios are ``w / h`` of the bbox and skip boxes with zero height.
+    """
+    n_images = len(coco.images)
+    n_annotations = len(coco.annotations)
+
+    per_image = Counter(ann.image_id for ann in coco.annotations)
+    counts_per_image = [per_image.get(img.id, 0) for img in coco.images]
+
+    small = sum(1 for ann in coco.annotations if ann.area < _SMALL_AREA)
+    large = sum(1 for ann in coco.annotations if ann.area >= _LARGE_AREA)
+    medium = n_annotations - small - large
+
+    per_category = Counter(ann.category_id for ann in coco.annotations)
+    names = {cat.id: cat.name for cat in coco.categories}
+    category_ids = list(names) + [cid for cid in per_category if cid not in names]
+    categories: list[dict[str, Any]] = [
+        {
+            "id": cid,
+            "name": names.get(cid, f"<unknown id {cid}>"),
+            "count": per_category.get(cid, 0),
+            "percent": _percent(per_category.get(cid, 0), n_annotations),
+        }
+        for cid in category_ids
+    ]
+    categories.sort(key=lambda c: (-c["count"], c["name"]))
+
+    ratios = [ann.bbox[2] / ann.bbox[3] for ann in coco.annotations if ann.bbox[3] > 0]
+
+    return {
+        "overview": {
+            "images": n_images,
+            "annotations": n_annotations,
+            "categories": len(coco.categories),
+            "mean_annotations_per_image": (
+                statistics.fmean(counts_per_image) if counts_per_image else 0.0
+            ),
+            "median_annotations_per_image": (
+                float(statistics.median(counts_per_image)) if counts_per_image else 0.0
+            ),
+            "unannotated_images": sum(1 for c in counts_per_image if c == 0),
+        },
+        "box_scales": {
+            name: {"count": count, "percent": _percent(count, n_annotations)}
+            for name, count in (("small", small), ("medium", medium), ("large", large))
+        },
+        "categories": categories,
+        "aspect_ratio": {
+            "min": min(ratios) if ratios else None,
+            "median": float(statistics.median(ratios)) if ratios else None,
+            "max": max(ratios) if ratios else None,
+            "mean": statistics.fmean(ratios) if ratios else None,
+        },
+    }
+
+
+def _format_stats(stats: dict[str, Any]) -> str:
+    def num(value: float | None) -> str:
+        return "n/a" if value is None else f"{value:.2f}"
+
+    overview = stats["overview"]
+    lines = [
+        "Dataset overview",
+        f"  Images:                    {overview['images']}",
+        f"  Annotations:               {overview['annotations']}",
+        f"  Categories:                {overview['categories']}",
+        (
+            f"  Annotations per image:     mean {num(overview['mean_annotations_per_image'])}, "
+            f"median {num(overview['median_annotations_per_image'])}"
+        ),
+        f"  Unannotated images:        {overview['unannotated_images']}",
+        "",
+        "Box scales (COCO area)",
+    ]
+    labels = {
+        "small": "Small  (< 32^2)",
+        "medium": "Medium (32^2 to 96^2)",
+        "large": "Large  (>= 96^2)",
+    }
+    for name, label in labels.items():
+        scale = stats["box_scales"][name]
+        lines.append(f"  {label:<24} {scale['count']:>8}  {scale['percent']:6.2f}%")
+    lines += ["", "Category distribution"]
+    if stats["categories"]:
+        width = max(len(c["name"]) for c in stats["categories"])
+        for cat in stats["categories"]:
+            lines.append(f"  {cat['name']:<{width}}  {cat['count']:>8}  {cat['percent']:6.2f}%")
+    else:
+        lines.append("  (no categories)")
+    ratio = stats["aspect_ratio"]
+    lines += [
+        "",
+        "Aspect ratio (w / h)",
+        (
+            f"  min {num(ratio['min'])}, median {num(ratio['median'])}, "
+            f"max {num(ratio['max'])}, mean {num(ratio['mean'])}"
+        ),
+    ]
+    return "\n".join(lines)
+
+
+def _cmd_stats(args: argparse.Namespace) -> int:
+    path = Path(args.file)
+    if not path.exists():
+        print(f"Error: file {path} not found.", file=sys.stderr)
+        return 1
+    if path.is_dir():
+        print(f"Error: {path} is a directory, expected a JSON file.", file=sys.stderr)
+        return 1
+    try:
+        coco = validate_coco_file(path)
+    except Exception as exc:  # noqa: BLE001
+        print(f"Validation FAILED: {exc}", file=sys.stderr)
+        return 1
+    stats = _compute_stats(coco)
+    if args.json:
+        print(json.dumps(stats, indent=2))
+    else:
+        print(_format_stats(stats))
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point."""
     parser = _build_parser()
@@ -192,6 +340,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_convert(args)
     if args.command == "validate":
         return _cmd_validate(args)
+    if args.command == "stats":
+        return _cmd_stats(args)
 
     parser.print_help()
     return 1  # pragma: no cover
