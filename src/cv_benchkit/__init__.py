@@ -22,7 +22,9 @@ from cv_benchkit.converters import (
     yolo_to_voc,
 )
 from cv_benchkit.metrics import (
+    compute_ciou,
     compute_confusion_matrix,
+    compute_diou,
     compute_giou,
     compute_iou,
 )
@@ -34,7 +36,9 @@ __all__ = [
     "__version__",
     "coco_to_voc",
     "coco_to_yolo",
+    "compute_ciou",
     "compute_confusion_matrix",
+    "compute_diou",
     "compute_giou",
     "compute_iou",
     "cxcywh_to_xyxy",
