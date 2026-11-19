@@ -306,6 +306,7 @@ def test_yolo_to_coco_rejects_invalid_image_dimensions(
     with pytest.raises(ValueError, match=r"invalid.*positive"):
         yolo_to_coco(tmp_path, {"invalid": (width, height)}, ["object"])
 
+
 def test_yolo_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="category_names must not be empty"):
         yolo_to_coco(tmp_path, {}, [])
@@ -314,6 +315,21 @@ def test_yolo_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
 def test_voc_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="category_names must not be empty"):
         voc_to_coco(tmp_path, [])
+
+
+class TestCOCOAnnotation:
+    @pytest.mark.parametrize("area", [-0.25, float("nan"), float("inf"), float("-inf")])
+    def test_rejects_invalid_area(self, area: float) -> None:
+        with pytest.raises(ValidationError) as exc_info:
+            COCOAnnotation(id=1, image_id=1, category_id=1, bbox=[0, 0, 5, 4], area=area)
+
+        assert exc_info.value.errors()[0]["loc"] == ("area",)
+
+    @pytest.mark.parametrize("area", [0.0, 12.5])
+    def test_accepts_non_negative_area(self, area: float) -> None:
+        annotation = COCOAnnotation(id=1, image_id=1, category_id=1, bbox=[0, 0, 5, 4], area=area)
+        assert annotation.area == area
+
 
 class TestCOCOImage:
     """Tests for COCOImage positive dimension validation (#44)."""
