@@ -307,6 +307,16 @@ def test_yolo_to_coco_rejects_invalid_image_dimensions(
         yolo_to_coco(tmp_path, {"invalid": (width, height)}, ["object"])
 
 
+def test_yolo_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="category_names must not be empty"):
+        yolo_to_coco(tmp_path, {}, [])
+
+
+def test_voc_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="category_names must not be empty"):
+        voc_to_coco(tmp_path, [])
+
+
 class TestCOCOAnnotation:
     @pytest.mark.parametrize("area", [-0.25, float("nan"), float("inf"), float("-inf")])
     def test_rejects_invalid_area(self, area: float) -> None:
