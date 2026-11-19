@@ -67,6 +67,9 @@ dataset = validate_coco_file("path/to/annotations.json")
 # Validate COCO dataset
 cv-benchkit validate annotations.json
 
+# Summarize a COCO dataset (add --json for machine-readable output)
+cv-benchkit stats annotations.json
+
 # Convert COCO to YOLO format
 cv-benchkit convert --from coco --to yolo --input annotations.json --output ./yolo_labels
 
