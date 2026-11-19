@@ -336,3 +336,13 @@ class TestCOCOImage:
         img = COCOImage(id=1, file_name="img.jpg", width=100, height=200)
         assert img.width == 100
         assert img.height == 200
+
+    @pytest.mark.parametrize("file_name", ["", "   ", "  \t  ", "\n"])
+    def test_rejects_empty_or_whitespace_file_name(self, file_name: str) -> None:
+        with pytest.raises(ValidationError, match="file_name must be a non-empty string"):
+            COCOImage(id=1, file_name=file_name, width=100, height=200)
+
+    @pytest.mark.parametrize("file_name", ["image_001.jpg", "dir/img.png", " img.jpg "])
+    def test_accepts_valid_file_name(self, file_name: str) -> None:
+        img = COCOImage(id=1, file_name=file_name, width=100, height=200)
+        assert img.file_name == file_name
