@@ -18,14 +18,16 @@ def _normalize_boxes(
 
     An empty 1D input becomes ``(0, 4)``; a non-empty 1D input becomes
     ``(1, 4)``. Any non-empty array without exactly four coordinates on its
-    last axis or with a minimum greater than the corresponding maximum
-    is rejected with a clear error.
+    last axis, with a non-finite coordinate (NaN or Inf), or with a minimum
+    greater than the corresponding maximum is rejected with a clear error.
     """
     arr = np.asarray(boxes, dtype=np.float64)
     if arr.ndim == 1:
         arr = arr.reshape((0, 4) if arr.size == 0 else (1, -1))
     if arr.size != 0 and arr.shape[-1] != 4:
         raise ValueError("Boxes must have 4 coordinates [x_min, y_min, x_max, y_max]")
+    if arr.size != 0 and not np.all(np.isfinite(arr)):
+        raise ValueError("Bounding box coordinates must be finite (no NaN or Inf)")
     if arr.size != 0 and np.any(arr[..., :2] > arr[..., 2:]):
         raise ValueError("Box coordinates must satisfy x_min <= x_max and y_min <= y_max")
     return arr
