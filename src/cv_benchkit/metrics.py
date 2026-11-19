@@ -152,6 +152,141 @@ def compute_giou(
     return giou
 
 
+def compute_diou(
+    boxes_a: NDArray[np.floating[Any]],
+    boxes_b: NDArray[np.floating[Any]],
+) -> NDArray[np.floating[Any]]:
+    """Compute the pairwise Distance-IoU (DIoU) matrix.
+
+    DIoU = IoU - rho^2 / c^2  (Zheng et al., AAAI 2020)
+
+    where rho is the distance between the two box centers and c is the
+    diagonal of the smallest box enclosing both. When ``c^2 <= 0`` (both boxes
+    are the same point), DIoU equals IoU.
+
+    Parameters
+    ----------
+    boxes_a : ndarray, shape ``(M, 4)``
+        First set of boxes in xyxy format.
+    boxes_b : ndarray, shape ``(N, 4)``
+        Second set of boxes in xyxy format.
+
+    Returns
+    -------
+    ndarray, shape ``(M, N)``
+        DIoU values in ``(-1, 1]``.
+
+    Raises
+    ------
+    ValueError
+        If a box lacks four coordinates, has a non-finite coordinate, or has a
+        minimum greater than its maximum.
+    """
+    boxes_a = _normalize_boxes(boxes_a)
+    boxes_b = _normalize_boxes(boxes_b)
+    m = boxes_a.shape[0]
+    n = boxes_b.shape[0]
+    if m == 0 or n == 0:
+        return np.empty((m, n), dtype=np.float64)
+    iou, penalty = _iou_and_center_penalty(boxes_a, boxes_b)
+    diou: NDArray[np.floating[Any]] = iou - penalty
+    return diou
+
+
+def compute_ciou(
+    boxes_a: NDArray[np.floating[Any]],
+    boxes_b: NDArray[np.floating[Any]],
+) -> NDArray[np.floating[Any]]:
+    """Compute the pairwise Complete-IoU (CIoU) matrix.
+
+    CIoU = DIoU - alpha * v  (Zheng et al., AAAI 2020)
+
+    with ``v = 4 / pi^2 * (arctan(w_b / h_b) - arctan(w_a / h_a))^2`` measuring
+    aspect-ratio disagreement and ``alpha = v / ((1 - IoU) + v)``; ``alpha`` is
+    0 when ``v == 0`` or ``(1 - IoU) + v <= 0``. ``arctan(w / h)`` is computed as
+    ``arctan2(w, h)`` so zero-height boxes do not divide by zero. ``v`` is
+    symmetric, so it does not matter which set is the ground truth.
+
+    Parameters
+    ----------
+    boxes_a : ndarray, shape ``(M, 4)``
+        First set of boxes in xyxy format.
+    boxes_b : ndarray, shape ``(N, 4)``
+        Second set of boxes in xyxy format.
+
+    Returns
+    -------
+    ndarray, shape ``(M, N)``
+        CIoU values in ``[-1.5, 1]``. DIoU is above -1 and ``alpha * v`` is at
+        most 0.5 (reached when IoU is 0), so CIoU can fall below -1 for distant
+        boxes with very different aspect ratios.
+
+    Raises
+    ------
+    ValueError
+        If a box lacks four coordinates, has a non-finite coordinate, or has a
+        minimum greater than its maximum.
+    """
+    boxes_a = _normalize_boxes(boxes_a)
+    boxes_b = _normalize_boxes(boxes_b)
+    m = boxes_a.shape[0]
+    n = boxes_b.shape[0]
+    if m == 0 or n == 0:
+        return np.empty((m, n), dtype=np.float64)
+    iou, penalty = _iou_and_center_penalty(boxes_a, boxes_b)
+
+    angle_a = np.arctan2(boxes_a[:, 2] - boxes_a[:, 0], boxes_a[:, 3] - boxes_a[:, 1])
+    angle_b = np.arctan2(boxes_b[:, 2] - boxes_b[:, 0], boxes_b[:, 3] - boxes_b[:, 1])
+    v = (4.0 / np.pi**2) * (angle_b[None, :] - angle_a[:, None]) ** 2
+    denominator = (1.0 - iou) + v
+    safe_denominator = np.where(denominator > 0, denominator, 1.0)
+    alpha = np.where((v > 0) & (denominator > 0), v / safe_denominator, 0.0)
+
+    ciou: NDArray[np.floating[Any]] = iou - penalty - alpha * v
+    return ciou
+
+
+def _iou_and_center_penalty(
+    boxes_a: NDArray[np.floating[Any]],
+    boxes_b: NDArray[np.floating[Any]],
+) -> tuple[NDArray[np.floating[Any]], NDArray[np.floating[Any]]]:
+    """Return the pairwise IoU and the DIoU center-distance term ``rho^2 / c^2``.
+
+    Both inputs must already be normalized and non-empty. The penalty is 0
+    where the enclosing diagonal ``c^2`` is not positive.
+    """
+    inter_x1 = np.maximum(boxes_a[:, None, 0], boxes_b[None, :, 0])
+    inter_y1 = np.maximum(boxes_a[:, None, 1], boxes_b[None, :, 1])
+    inter_x2 = np.minimum(boxes_a[:, None, 2], boxes_b[None, :, 2])
+    inter_y2 = np.minimum(boxes_a[:, None, 3], boxes_b[None, :, 3])
+    intersection = np.maximum(0.0, inter_x2 - inter_x1) * np.maximum(0.0, inter_y2 - inter_y1)
+
+    area_a = (boxes_a[:, 2] - boxes_a[:, 0]) * (boxes_a[:, 3] - boxes_a[:, 1])
+    area_b = (boxes_b[:, 2] - boxes_b[:, 0]) * (boxes_b[:, 3] - boxes_b[:, 1])
+    union = area_a[:, None] + area_b[None, :] - intersection
+    safe_union = np.where(union > 0, union, 1.0)
+    iou = np.where(union > 0, intersection / safe_union, 0.0)
+
+    center_ax = (boxes_a[:, 0] + boxes_a[:, 2]) / 2.0
+    center_ay = (boxes_a[:, 1] + boxes_a[:, 3]) / 2.0
+    center_bx = (boxes_b[:, 0] + boxes_b[:, 2]) / 2.0
+    center_by = (boxes_b[:, 1] + boxes_b[:, 3]) / 2.0
+    rho2 = (center_ax[:, None] - center_bx[None, :]) ** 2 + (
+        center_ay[:, None] - center_by[None, :]
+    ) ** 2
+
+    enc_w = np.maximum(boxes_a[:, None, 2], boxes_b[None, :, 2]) - np.minimum(
+        boxes_a[:, None, 0], boxes_b[None, :, 0]
+    )
+    enc_h = np.maximum(boxes_a[:, None, 3], boxes_b[None, :, 3]) - np.minimum(
+        boxes_a[:, None, 1], boxes_b[None, :, 1]
+    )
+    c2 = enc_w**2 + enc_h**2
+    safe_c2 = np.where(c2 > 0, c2, 1.0)
+    penalty = np.where(c2 > 0, rho2 / safe_c2, 0.0)
+    return iou, penalty
+
+
 def compute_confusion_matrix(
     gt_labels: NDArray[np.integer[Any]],
     pred_labels: NDArray[np.integer[Any]],
