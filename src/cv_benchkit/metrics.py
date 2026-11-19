@@ -395,3 +395,61 @@ def compute_confusion_matrix(
             cm[gt_cls, bg] += 1
 
     return cm
+
+
+def compute_precision_recall_curve(
+    scores: NDArray[np.floating[Any]],
+    matches: NDArray[np.bool_],
+    num_positives: int,
+) -> tuple[NDArray[np.floating[Any]], NDArray[np.floating[Any]]]:
+    """Compute precision and recall values ordered by descending confidence.
+
+    Parameters
+    ----------
+    scores : ndarray, shape ``(N,)``
+        1D array of detection confidence scores.
+    matches : ndarray, shape ``(N,)``
+        1D boolean array where ``True`` indicates a true positive and
+        ``False`` indicates a false positive.
+    num_positives : int
+        Total number of ground-truth positives (must be ``>= 0``).
+
+    Returns
+    -------
+    tuple of (ndarray, ndarray)
+        ``(precision, recall)`` 1D float64 arrays sorted by descending
+        ``scores``. Returns ``(np.empty(0), np.empty(0))`` when
+        ``num_positives == 0`` or ``scores`` is empty.
+
+    Raises
+    ------
+    ValueError
+        If ``scores`` and ``matches`` are not 1D arrays of equal length, or
+        if ``num_positives < 0``.
+    """
+    scores_arr = np.asarray(scores, dtype=np.float64)
+    matches_arr = np.asarray(matches, dtype=np.bool_)
+
+    if scores_arr.ndim != 1 or matches_arr.ndim != 1:
+        raise ValueError("scores and matches must be 1D arrays")
+    if len(scores_arr) != len(matches_arr):
+        raise ValueError(
+            "scores and matches must have the same length, "
+            f"got {len(scores_arr)} and {len(matches_arr)}"
+        )
+    if num_positives < 0:
+        raise ValueError(f"num_positives must be non-negative, got {num_positives}")
+
+    if num_positives == 0 or scores_arr.size == 0:
+        return np.empty(0, dtype=np.float64), np.empty(0, dtype=np.float64)
+
+    order = np.argsort(-scores_arr, kind="mergesort")
+    sorted_matches = matches_arr[order]
+
+    cumulative_tp = np.cumsum(sorted_matches, dtype=np.float64)
+    cumulative_fp = np.cumsum(~sorted_matches, dtype=np.float64)
+
+    recall: NDArray[np.floating[Any]] = cumulative_tp / float(num_positives)
+    denom = cumulative_tp + cumulative_fp
+    precision: NDArray[np.floating[Any]] = np.where(denom > 0, cumulative_tp / denom, 0.0)
+    return precision, recall
