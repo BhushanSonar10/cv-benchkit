@@ -69,14 +69,10 @@ def test_empty_inputs_and_zero_positives() -> None:
 
 def test_invalid_inputs_raise_value_error() -> None:
     with pytest.raises(ValueError, match="same length"):
-        compute_precision_recall_curve(
-            np.array([0.9, 0.8]), np.array([True]), num_positives=1
-        )
+        compute_precision_recall_curve(np.array([0.9, 0.8]), np.array([True]), num_positives=1)
 
     with pytest.raises(ValueError, match="non-negative"):
-        compute_precision_recall_curve(
-            np.array([0.9]), np.array([True]), num_positives=-1
-        )
+        compute_precision_recall_curve(np.array([0.9]), np.array([True]), num_positives=-1)
 
     with pytest.raises(ValueError, match="1D"):
         compute_precision_recall_curve(
