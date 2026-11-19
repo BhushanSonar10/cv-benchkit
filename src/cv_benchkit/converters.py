@@ -91,6 +91,14 @@ class COCOImage(BaseModel):
             raise ValueError(msg)
         return v
 
+    @field_validator("file_name")
+    @classmethod
+    def _non_empty_file_name(cls, v: str) -> str:
+        if not v.strip():
+            msg = "file_name must be a non-empty string"
+            raise ValueError(msg)
+        return v
+
 
 class COCOCategory(BaseModel):
     """Minimal COCO category record."""
