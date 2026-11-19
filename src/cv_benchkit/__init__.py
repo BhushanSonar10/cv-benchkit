@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 from cv_benchkit.converters import (
     BBox,
@@ -22,7 +22,9 @@ from cv_benchkit.converters import (
     yolo_to_voc,
 )
 from cv_benchkit.metrics import (
+    compute_ciou,
     compute_confusion_matrix,
+    compute_diou,
     compute_giou,
     compute_iou,
 )
@@ -34,7 +36,9 @@ __all__ = [
     "__version__",
     "coco_to_voc",
     "coco_to_yolo",
+    "compute_ciou",
     "compute_confusion_matrix",
+    "compute_diou",
     "compute_giou",
     "compute_iou",
     "cxcywh_to_xyxy",

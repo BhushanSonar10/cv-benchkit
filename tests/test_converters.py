@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from cv_benchkit.converters import (
     BBox,
+    COCOAnnotation,
     COCODataset,
     COCOImage,
     coco_to_voc,
@@ -111,6 +112,14 @@ class TestBBoxConversions:
 
         sanitized = xyxy_to_xywh(inverted, sanitize=True)
         np.testing.assert_allclose(sanitized, np.array([[10.0, 20.0, 20.0, 20.0]]))
+
+    def test_xyxy_to_cxcywh_inverted_boxes(self) -> None:
+        inverted = np.array([[30.0, 40.0, 10.0, 20.0]])
+        with pytest.raises(ValueError, match="inverted bounding box"):
+            xyxy_to_cxcywh(inverted)
+
+        sanitized = xyxy_to_cxcywh(inverted, sanitize=True)
+        np.testing.assert_allclose(sanitized, np.array([[20.0, 30.0, 20.0, 20.0]]))
 
     @pytest.mark.parametrize(
         "invalid_box",
@@ -297,7 +306,6 @@ def test_yolo_to_coco_rejects_invalid_image_dimensions(
     with pytest.raises(ValueError, match=r"invalid.*positive"):
         yolo_to_coco(tmp_path, {"invalid": (width, height)}, ["object"])
 
-
 def test_yolo_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="category_names must not be empty"):
         yolo_to_coco(tmp_path, {}, [])
@@ -306,7 +314,6 @@ def test_yolo_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
 def test_voc_to_coco_rejects_empty_category_names(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="category_names must not be empty"):
         voc_to_coco(tmp_path, [])
-
 
 class TestCOCOImage:
     """Tests for COCOImage positive dimension validation (#44)."""
@@ -323,3 +330,13 @@ class TestCOCOImage:
         img = COCOImage(id=1, file_name="img.jpg", width=100, height=200)
         assert img.width == 100
         assert img.height == 200
+
+    @pytest.mark.parametrize("file_name", ["", "   ", "  \t  ", "\n"])
+    def test_rejects_empty_or_whitespace_file_name(self, file_name: str) -> None:
+        with pytest.raises(ValidationError, match="file_name must be a non-empty string"):
+            COCOImage(id=1, file_name=file_name, width=100, height=200)
+
+    @pytest.mark.parametrize("file_name", ["image_001.jpg", "dir/img.png", " img.jpg "])
+    def test_accepts_valid_file_name(self, file_name: str) -> None:
+        img = COCOImage(id=1, file_name=file_name, width=100, height=200)
+        assert img.file_name == file_name
