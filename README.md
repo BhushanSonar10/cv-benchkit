@@ -41,6 +41,22 @@ uvx --from cv-benchkit cv-benchkit --help
 - **CLI Utility**: Command-line interface for fast dataset conversion and validation.
 - **Strictly Typed & Tested**: 100% typed with PEP 561 marker, passing `mypy --strict`, with 95%+ unit test coverage.
 
+### Bounding-box coordinate formats
+
+All converter functions use four-value boxes. Choose the format that matches the
+dataset or model you are integrating with:
+
+| Format | Coordinate order | Units | Common source |
+| --- | --- | --- | --- |
+| `xyxy` | `x_min, y_min, x_max, y_max` | Absolute pixels | Internal canonical format |
+| `xywh` | `x_min, y_min, width, height` | Absolute pixels | COCO annotations |
+| `cxcywh` | `center_x, center_y, width, height` | Absolute pixels | Center-based model APIs |
+| `normalized` | `center_x, center_y, width, height` | Relative values in `[0, 1]` | YOLO label files |
+
+Use `xyxy_to_normalized()` and `normalized_to_xyxy()` when converting between
+absolute pixel coordinates and normalized YOLO coordinates; pass the image width
+and height so the conversion can scale each axis correctly.
+
 ---
 
 ## Python API Usage
