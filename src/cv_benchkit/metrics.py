@@ -20,8 +20,11 @@ def _normalize_boxes(
     ``(1, 4)``. Any non-empty array without exactly four coordinates on its
     last axis, with a non-finite coordinate (NaN or Inf), or with a minimum
     greater than the corresponding maximum is rejected with a clear error.
+    Arrays with more than two dimensions are rejected, even if empty.
     """
     arr = np.asarray(boxes, dtype=np.float64)
+    if arr.ndim > 2:
+        raise ValueError(f"Boxes array must be 1D or 2D, got {arr.ndim}D array")
     if arr.ndim == 1:
         arr = arr.reshape((0, 4) if arr.size == 0 else (1, -1))
     if arr.size != 0 and arr.shape[-1] != 4:
@@ -54,7 +57,8 @@ def compute_iou(
     Raises
     ------
     ValueError
-        If a box lacks four coordinates or has a minimum greater than its maximum.
+        If an input has more than two dimensions, or a box has the wrong number
+        of coordinates, non-finite coordinates, or inverted corners.
     """
     boxes_a = _normalize_boxes(boxes_a)
     boxes_b = _normalize_boxes(boxes_b)
@@ -109,7 +113,8 @@ def compute_giou(
     Raises
     ------
     ValueError
-        If a box lacks four coordinates or has a minimum greater than its maximum.
+        If an input has more than two dimensions, or a box has the wrong number
+        of coordinates, non-finite coordinates, or inverted corners.
     """
     boxes_a = _normalize_boxes(boxes_a)
     boxes_b = _normalize_boxes(boxes_b)
@@ -179,8 +184,8 @@ def compute_diou(
     Raises
     ------
     ValueError
-        If a box lacks four coordinates, has a non-finite coordinate, or has a
-        minimum greater than its maximum.
+        If an input has more than two dimensions, or a box has the wrong number
+        of coordinates, non-finite coordinates, or inverted corners.
     """
     boxes_a = _normalize_boxes(boxes_a)
     boxes_b = _normalize_boxes(boxes_b)
@@ -224,8 +229,8 @@ def compute_ciou(
     Raises
     ------
     ValueError
-        If a box lacks four coordinates, has a non-finite coordinate, or has a
-        minimum greater than its maximum.
+        If an input has more than two dimensions, or a box has the wrong number
+        of coordinates, non-finite coordinates, or inverted corners.
     """
     boxes_a = _normalize_boxes(boxes_a)
     boxes_b = _normalize_boxes(boxes_b)

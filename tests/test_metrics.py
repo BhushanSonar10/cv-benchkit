@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 import pytest
+from numpy.typing import NDArray
 
 from cv_benchkit.metrics import (
     compute_confusion_matrix,
@@ -65,6 +68,24 @@ class TestMetrics:
             ValueError, r"Boxes must have 4 coordinates \[x_min, y_min, x_max, y_max\]"
         ):
             compute_iou(np.array([[0, 0, 10]]), boxes_b)
+
+    @pytest.mark.parametrize("metric", [compute_iou, compute_giou], ids=["iou", "giou"])
+    @pytest.mark.parametrize("shape", [(2, 3, 4), (2, 2, 3, 4), (0, 3, 4)])
+    @pytest.mark.parametrize("input_index", [0, 1], ids=["boxes-a", "boxes-b"])
+    def test_metrics_reject_box_arrays_with_more_than_two_dimensions(
+        self,
+        metric: Callable[[NDArray[np.float64], NDArray[np.float64]], NDArray[np.float64]],
+        shape: tuple[int, ...],
+        input_index: int,
+    ) -> None:
+        valid_boxes = np.array([[0.0, 0.0, 10.0, 10.0]])
+        inputs = [valid_boxes, valid_boxes]
+        inputs[input_index] = np.zeros(shape)
+
+        with pytest.raises(
+            ValueError, match=rf"Boxes array must be 1D or 2D, got {len(shape)}D array"
+        ):
+            metric(*inputs)
 
     @pytest.mark.parametrize("start_axis", [0, 1], ids=["x-min", "y-min"])
     @pytest.mark.parametrize("input_index", [0, 1], ids=["boxes-a", "boxes-b"])
