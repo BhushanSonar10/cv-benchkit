@@ -6,6 +6,10 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Good First Issues](https://img.shields.io/github/issues/udayraj1238/cv-benchkit/good%20first%20issue?label=good%20first%20issues&color=7057ff)](https://github.com/udayraj1238/cv-benchkit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 
+> **Contributing:** Looking to contribute? Check out our [good first issues](https://github.com/udayraj1238/cv-benchkit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)!
+> To claim an issue, post a short comment on the issue before or when opening your PR, and include `Closes #<issue-number>` in your PR description.
+> First-time contributors (0 prior merged PRs) are prioritized for `good first issue` tickets to give newcomers a fair start.
+
 Unified computer vision annotation converter and model benchmarking toolkit for PyTorch and NumPy.
 
 ---
@@ -37,6 +41,22 @@ uvx --from cv-benchkit cv-benchkit --help
 - **CLI Utility**: Command-line interface for fast dataset conversion and validation.
 - **Strictly Typed & Tested**: 100% typed with PEP 561 marker, passing `mypy --strict`, with 95%+ unit test coverage.
 
+### Bounding-box coordinate formats
+
+All converter functions use four-value boxes. Choose the format that matches the
+dataset or model you are integrating with:
+
+| Format | Coordinate order | Units | Common source |
+| --- | --- | --- | --- |
+| `xyxy` | `x_min, y_min, x_max, y_max` | Absolute pixels | Internal canonical format |
+| `xywh` | `x_min, y_min, width, height` | Absolute pixels | COCO annotations |
+| `cxcywh` | `center_x, center_y, width, height` | Absolute pixels | Center-based model APIs |
+| `normalized` | `center_x, center_y, width, height` | Relative values in `[0, 1]` | YOLO label files |
+
+Use `xyxy_to_normalized()` and `normalized_to_xyxy()` when converting between
+absolute pixel coordinates and normalized YOLO coordinates; pass the image width
+and height so the conversion can scale each axis correctly.
+
 ---
 
 ## Python API Usage
@@ -62,6 +82,9 @@ dataset = validate_coco_file("path/to/annotations.json")
 ```bash
 # Validate COCO dataset
 cv-benchkit validate annotations.json
+
+# Summarize a COCO dataset (add --json for machine-readable output)
+cv-benchkit stats annotations.json
 
 # Convert COCO to YOLO format
 cv-benchkit convert --from coco --to yolo --input annotations.json --output ./yolo_labels

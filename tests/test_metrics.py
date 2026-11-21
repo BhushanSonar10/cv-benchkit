@@ -80,6 +80,28 @@ class TestMetrics:
         ):
             compute_iou(*inputs)
 
+    @pytest.mark.parametrize("bad_value", [np.nan, np.inf, -np.inf], ids=["nan", "inf", "-inf"])
+    @pytest.mark.parametrize("coord_index", [0, 1, 2, 3])
+    @pytest.mark.parametrize("input_index", [0, 1], ids=["boxes-a", "boxes-b"])
+    def test_iou_rejects_non_finite_coordinates(
+        self, bad_value: float, coord_index: int, input_index: int
+    ) -> None:
+        valid_boxes = np.array([[0.0, 0.0, 10.0, 10.0]])
+        bad_boxes = np.repeat(valid_boxes, 2, axis=0)
+        bad_boxes[1, coord_index] = bad_value
+        inputs = [valid_boxes, valid_boxes]
+        inputs[input_index] = bad_boxes
+
+        with pytest.raises(ValueError, match=r"Bounding box coordinates must be finite"):
+            compute_iou(*inputs)
+
+    def test_giou_rejects_non_finite_coordinates(self) -> None:
+        valid_boxes = np.array([[0.0, 0.0, 10.0, 10.0]])
+        bad_boxes = np.array([[0.0, np.nan, 10.0, 10.0]])
+
+        with pytest.raises(ValueError, match=r"Bounding box coordinates must be finite"):
+            compute_giou(valid_boxes, bad_boxes)
+
     def test_iou_accepts_equal_minimum_and_maximum_coordinates(self) -> None:
         degenerate_boxes = np.array([[0.0, 0.0, 0.0, 10.0], [0.0, 0.0, 10.0, 0.0]])
         valid_box = np.array([0.0, 0.0, 10.0, 10.0])

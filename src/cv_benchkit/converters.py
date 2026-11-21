@@ -25,7 +25,7 @@ from xml.dom import minidom
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Pydantic models for validation
@@ -68,13 +68,13 @@ class BBox(BaseModel):
 
 
 class COCOAnnotation(BaseModel):
-    """Minimal COCO annotation record."""
+    """Minimal COCO annotation record with a finite, non-negative area."""
 
     id: int
     image_id: int
     category_id: int
     bbox: list[float]  # xywh
-    area: float
+    area: float = Field(ge=0, allow_inf_nan=False)
     iscrowd: int = 0
 
     @field_validator("bbox")
@@ -99,6 +99,14 @@ class COCOImage(BaseModel):
     def _positive(cls, v: int) -> int:
         if v <= 0:
             msg = "image dimensions must be positive"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("file_name")
+    @classmethod
+    def _non_empty_file_name(cls, v: str) -> str:
+        if not v.strip():
+            msg = "file_name must be a non-empty string"
             raise ValueError(msg)
         return v
 
@@ -211,24 +219,51 @@ def xywh_to_xyxy(boxes: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
     return out
 
 
-def xyxy_to_cxcywh(boxes: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
+def xyxy_to_cxcywh(
+    boxes: NDArray[np.floating[Any]],
+    sanitize: bool = False,
+) -> NDArray[np.floating[Any]]:
     """Convert ``(N, 4)`` boxes from xyxy to center-x/center-y/w/h format.
 
     Parameters
     ----------
     boxes : ndarray, shape ``(N, 4)``
         Each row is ``[x_min, y_min, x_max, y_max]``.
+    sanitize : bool, default False
+        If ``True``, swap inverted coordinates where ``x_max < x_min`` or
+        ``y_max < y_min``. If ``False``, raise ``ValueError`` for inverted boxes.
 
     Returns
     -------
     ndarray, shape ``(N, 4)``
         Each row is ``[center_x, center_y, width, height]``.
+
+    Raises
+    ------
+    ValueError
+        If ``sanitize=False`` and any box has ``x_max < x_min`` or ``y_max < y_min``.
     """
     boxes = np.asarray(boxes, dtype=np.float64)
     if boxes.ndim == 1:
         boxes = boxes.reshape(1, 4)
     if boxes.shape[0] == 0:
         return np.empty((0, 4), dtype=np.float64)
+
+    inverted = (boxes[:, 2] < boxes[:, 0]) | (boxes[:, 3] < boxes[:, 1])
+    if np.any(inverted):
+        if not sanitize:
+            msg = "Found inverted bounding box where x_max < x_min or y_max < y_min"
+            raise ValueError(msg)
+        boxes = boxes.copy()
+        boxes[:, 0], boxes[:, 2] = (
+            np.minimum(boxes[:, 0], boxes[:, 2]),
+            np.maximum(boxes[:, 0], boxes[:, 2]),
+        )
+        boxes[:, 1], boxes[:, 3] = (
+            np.minimum(boxes[:, 1], boxes[:, 3]),
+            np.maximum(boxes[:, 1], boxes[:, 3]),
+        )
+
     out = np.empty_like(boxes)
     out[:, 2] = boxes[:, 2] - boxes[:, 0]  # width
     out[:, 3] = boxes[:, 3] - boxes[:, 1]  # height
@@ -433,6 +468,8 @@ def yolo_to_coco(
     COCODataset
         Validated COCO dataset.
     """
+    if not category_names:
+        raise ValueError("category_names must not be empty")
     for stem, (width, height) in image_sizes.items():
         if width <= 0 or height <= 0:
             raise ValueError(f"Image {stem!r} must have positive width and height")
@@ -440,7 +477,6 @@ def yolo_to_coco(
     images: list[COCOImage] = []
     annotations: list[COCOAnnotation] = []
     categories = [COCOCategory(id=i, name=name) for i, name in enumerate(category_names)]
-
     ann_id = 1
     for img_id, (stem, (w, h)) in enumerate(sorted(image_sizes.items()), start=1):
         images.append(COCOImage(id=img_id, file_name=f"{stem}.jpg", width=w, height=h))
@@ -579,6 +615,8 @@ def voc_to_coco(
     COCODataset
         Validated COCO dataset.
     """
+    if not category_names:
+        raise ValueError("category_names must not be empty")
     xml_dir = Path(xml_dir)
     name_to_id = {name: i for i, name in enumerate(category_names)}
     categories = [COCOCategory(id=i, name=name) for i, name in enumerate(category_names)]
