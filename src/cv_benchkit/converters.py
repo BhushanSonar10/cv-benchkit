@@ -75,7 +75,7 @@ class COCOAnnotation(BaseModel):
     category_id: int
     bbox: list[float]  # xywh
     area: float = Field(ge=0, allow_inf_nan=False)
-    iscrowd: int = 0
+iscrowd: int = Field(default=0, ge=0, le=1)
 
     @field_validator("bbox")
     @classmethod
