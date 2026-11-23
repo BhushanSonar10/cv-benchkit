@@ -114,6 +114,10 @@ def _cmd_convert(args: argparse.Namespace) -> int:
         print(f"Error: source and target format are the same ({src}).", file=sys.stderr)
         return 1
 
+    if not inp.exists():
+        print(f"Error: input path '{inp}' not found.", file=sys.stderr)
+        return 1
+
     if src == "coco":
         coco = validate_coco_file(inp)
         paths = coco_to_yolo(coco, out) if dst == "yolo" else coco_to_voc(coco, out)
