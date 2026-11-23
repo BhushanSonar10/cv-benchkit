@@ -63,6 +63,30 @@ class TestCLI:
         exit_code = main(["validate", str(bad_file)])
         assert exit_code == 1
 
+    @pytest.mark.parametrize(
+        ("src", "dst"),
+        [
+            ("coco", "yolo"),
+            ("coco", "voc"),
+            ("yolo", "coco"),
+            ("yolo", "voc"),
+            ("voc", "coco"),
+            ("voc", "yolo"),
+        ],
+    )
+    def test_convert_missing_input(
+        self, src: str, dst: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        missing = tmp_path / ("missing.json" if src == "coco" else "missing_labels")
+        output = tmp_path / "output"
+        args = ["convert", "--from", src, "--to", dst, "--input", str(missing)]
+        args.extend(["--output", str(output), "--categories", "dog"])
+        args.extend(["--image-width", "100", "--image-height", "100"])
+
+        assert main(args) == 1
+        assert capsys.readouterr().err == f"Error: input path '{missing}' not found.\n"
+        assert not output.exists()
+
     def test_convert_coco_to_yolo(self, sample_coco_file: Path, tmp_path: Path) -> None:
         out_dir = tmp_path / "yolo_out"
         exit_code = main(
