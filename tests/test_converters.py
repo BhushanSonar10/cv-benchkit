@@ -330,10 +330,21 @@ class TestCOCOAnnotation:
         annotation = COCOAnnotation(id=1, image_id=1, category_id=1, bbox=[0, 0, 5, 4], area=area)
         assert annotation.area == area
 
+    @pytest.mark.parametrize("iscrowd", [-1, 2, 10])
+        def test_rejects_non_binary_iscrowd(self, iscrowd: int) -> None:
+                    with pytest.raises(ValidationError) as exc_info:
+                                    COCOAnnotation(id=1, image_id=1, category_id=1, bbox=[0, 0, 5, 4], area=20.0, iscrowd=iscrowd)
+                                assert exc_info.value.errors()[0]["loc"] == ("iscrowd",)
 
-class TestCOCOImage:
+    @pytest.mark.parametrize("iscrowd", [0, 1])
+        def test_accepts_binary_iscrowd(self, iscrowd: int) -> None:
+                    annotation = COCOAnnotation(id=1, image_id=1, category_id=1, bbox=[0, 0, 5, 4], area=20.0, iscrowd=iscrowd)
+                    assert annotation.iscrowd == iscrowd
+            
+    
+    class TestCOCOImage:
     """Tests for COCOImage positive dimension validation (#44)."""
-
+    
     @pytest.mark.parametrize(
         ("width", "height"),
         [(0, 100), (100, -1), (0, 0), (-5, 100), (100, 0)],
