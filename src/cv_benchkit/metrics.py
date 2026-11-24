@@ -458,3 +458,72 @@ def compute_precision_recall_curve(
     denom = cumulative_tp + cumulative_fp
     precision: NDArray[np.floating[Any]] = np.where(denom > 0, cumulative_tp / denom, 0.0)
     return precision, recall
+
+
+def compute_average_precision(
+    precision: NDArray[np.floating[Any]],
+    recall: NDArray[np.floating[Any]],
+    method: str = "all_points",
+) -> float:
+    """Compute Average Precision (AP) from precision and recall arrays.
+
+    Parameters
+    ----------
+    precision : ndarray, shape ``(N,)``
+        1D array of precision values in ``[0.0, 1.0]``.
+    recall : ndarray, shape ``(N,)``
+        1D array of recall values in ``[0.0, 1.0]``.
+    method : {"all_points", "interp_11"}, default="all_points"
+        Interpolation method:
+        - ``"all_points"``: COCO / PASCAL VOC 2010+ all-point interpolation.
+        - ``"interp_11"``: PASCAL VOC 2007 11-point interpolation.
+
+    Returns
+    -------
+    float
+        Average Precision score in ``[0.0, 1.0]``. Returns ``0.0`` for empty
+        inputs.
+
+    Raises
+    ------
+    ValueError
+        If ``precision`` and ``recall`` are not 1D arrays of equal length,
+        contain values outside ``[0.0, 1.0]`` (or non-finite), or if
+        ``method`` is unsupported.
+    """
+    if method not in ("all_points", "interp_11"):
+        raise ValueError(f"Unsupported AP method '{method}'. Expected 'all_points' or 'interp_11'.")
+
+    prec = np.asarray(precision, dtype=np.float64)
+    rec = np.asarray(recall, dtype=np.float64)
+
+    if prec.ndim != 1 or rec.ndim != 1:
+        raise ValueError("precision and recall must be 1D arrays")
+    if prec.shape != rec.shape:
+        raise ValueError(
+            f"precision and recall must have the same shape, got {prec.shape} and {rec.shape}"
+        )
+    if prec.size == 0:
+        return 0.0
+
+    if not (np.all(np.isfinite(prec)) and np.all(np.isfinite(rec))):
+        raise ValueError("precision and recall must be finite")
+    if np.any((prec < 0.0) | (prec > 1.0)) or np.any((rec < 0.0) | (rec > 1.0)):
+        raise ValueError("precision and recall values must be in [0.0, 1.0]")
+
+    if method == "interp_11":
+        thresholds = np.linspace(0.0, 1.0, 11)
+        ap_sum = 0.0
+        for thr in thresholds:
+            mask = rec >= thr
+            ap_sum += float(np.max(prec[mask])) if np.any(mask) else 0.0
+        return ap_sum / 11.0
+
+    # "all_points": sentinel (recall=0, precision=1) and (recall=1, precision=0)
+    mrec = np.concatenate(([0.0], rec, [1.0]))
+    mpre = np.concatenate(([1.0], prec, [0.0]))
+    for idx in range(mpre.size - 2, -1, -1):
+        mpre[idx] = max(mpre[idx], mpre[idx + 1])
+
+    changed = np.where(mrec[1:] != mrec[:-1])[0]
+    return float(np.sum((mrec[changed + 1] - mrec[changed]) * mpre[changed + 1]))
